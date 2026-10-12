@@ -1,30 +1,49 @@
-// Checks the schema and RLS rules on in-memory Postgres. Run: npm i -D @electric-sql/pglite && node supabase/tests/schema.test.mjs supabase/migrations/20261012000000_initial_schema.sql
+// Checks the migrations, RLS rules and seed on in-memory Postgres with stubbed Supabase auth/storage schemas.
+// Run: npm i -D @electric-sql/pglite && node supabase/tests/schema.test.mjs supabase
 import { PGlite } from '@electric-sql/pglite';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
+import { join } from 'node:path';
 import assert from 'node:assert/strict';
 
-const db = new PGlite();
-await db.exec(`
-  create schema auth;
-  create table auth.users (id uuid primary key, raw_user_meta_data jsonb);
-  create function auth.uid() returns uuid language sql stable as
-    $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
-  create role anon;
-  create role authenticated;
-  grant usage on schema auth to authenticated;
-  grant execute on function auth.uid() to authenticated;
-  -- Supabase grants everything on new public tables to these roles by default.
-  grant usage on schema public to anon, authenticated;
-  alter default privileges in schema public grant all on tables to anon, authenticated;
-  alter default privileges in schema public grant all on sequences to anon, authenticated;
-`);
-await db.exec(readFileSync(process.argv[2], 'utf8'));
+const dir = process.argv[2] ?? 'supabase';
 
+async function freshDb() {
+  const db = new PGlite();
+  await db.exec(`
+    create schema auth;
+    create table auth.users (id uuid primary key, aud text, role text, email text, raw_user_meta_data jsonb);
+    create function auth.uid() returns uuid language sql stable as
+      $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
+    create schema storage;
+    create table storage.buckets (id text primary key, name text not null, public boolean default false,
+      file_size_limit bigint, allowed_mime_types text[]);
+    create table storage.objects (id uuid primary key default gen_random_uuid(), bucket_id text references storage.buckets,
+      name text not null, owner uuid);
+    create function storage.foldername(name text) returns text[] language sql immutable as
+      $$ select (string_to_array(name, '/'))[1:array_length(string_to_array(name, '/'), 1) - 1] $$;
+    alter table storage.objects enable row level security;
+    create role anon;
+    create role authenticated;
+    grant usage on schema auth, storage to authenticated;
+    grant execute on function auth.uid() to authenticated;
+    grant all on storage.objects to authenticated;
+    -- Supabase grants everything on new public tables to these roles by default.
+    grant usage on schema public to anon, authenticated;
+    alter default privileges in schema public grant all on tables to anon, authenticated;
+    alter default privileges in schema public grant all on sequences to anon, authenticated;
+  `);
+  for (const f of readdirSync(join(dir, 'migrations')).sort()) {
+    await db.exec(readFileSync(join(dir, 'migrations', f), 'utf8'));
+  }
+  return db;
+}
+
+const db = await freshDb();
 const SELLER = '11111111-1111-1111-1111-111111111111';
 const BUYER = '22222222-2222-2222-2222-222222222222';
 const OTHER = '33333333-3333-3333-3333-333333333333';
 await db.exec(`
-  insert into auth.users values
+  insert into auth.users (id, raw_user_meta_data) values
     ('${SELLER}', '{"role":"seller","full_name":"Seller"}'),
     ('${BUYER}', '{"full_name":"Buyer"}'),
     ('${OTHER}', '{"role":"admin"}');
@@ -92,4 +111,26 @@ await fails(OTHER, `insert into reviews (product_id, buyer_id, rating) values ('
 await fails(BUYER, `insert into reviews (product_id, buyer_id, rating) values ('${PRODUCT}', '${BUYER}', 6)`, 'rating max 5');
 await as(BUYER, review);
 
-console.log('All schema and security checks passed');
+// Storage: sellers write only inside their own folder of the product-images bucket.
+const upload = (path) => `insert into storage.objects (bucket_id, name) values ('product-images', '${path}')`;
+await as(SELLER, upload(`${SELLER}/phone.jpg`), true);
+await fails(SELLER, upload(`${BUYER}/phone.jpg`), 'seller cannot upload to another folder');
+await fails(SELLER, upload('phone.jpg'), 'seller cannot upload outside a folder');
+await fails(BUYER, upload(`${BUYER}/phone.jpg`), 'buyers cannot upload');
+assert.equal((await as(OTHER, `delete from storage.objects`)).affectedRows, 0, 'others cannot delete seller files');
+assert.equal((await as(SELLER, `delete from storage.objects`)).affectedRows, 1, 'seller can delete own files');
+
+// Seed: right counts, and a second run adds nothing.
+const seeded = await freshDb();
+const seed = readFileSync(join(dir, 'seed.sql'), 'utf8');
+const counts = async () => (await seeded.query(`select
+  (select count(*) from categories)::int as categories, (select count(*) from shops)::int as shops,
+  (select count(*) from products)::int as products, (select count(*) from product_images)::int as images,
+  (select count(*) from products where price <= 0 or stock <= 0)::int as bad`)).rows[0];
+await seeded.exec(seed);
+const first = await counts();
+assert.deepEqual(first, { categories: 8, shops: 2, products: 50, images: 50, bad: 0 }, 'seed counts');
+await seeded.exec(seed);
+assert.deepEqual(await counts(), first, 'seed is safe to run twice');
+
+console.log('All schema, security, storage and seed checks passed');
