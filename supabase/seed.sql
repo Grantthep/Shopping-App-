@@ -1,4 +1,4 @@
--- Test data: 8 categories, 2 fake seller shops, 50 products with placeholder photos. Prices in kyat.
+-- Test data: 8 categories, 2 fake seller shops, 50 products with placeholder photos, sizes on 2 products. Prices in kyat.
 -- Safe to run more than once. The fake sellers have no password, so nobody can log in as them.
 
 insert into categories (name, slug) values
@@ -65,3 +65,12 @@ select md5('seed-image-' || p.id)::uuid, p.id, 'https://picsum.photos/seed/' || 
 from products p
 where p.shop_id in ('00000000-0000-0000-0000-00000000b001', '00000000-0000-0000-0000-00000000b002')
 on conflict (id) do nothing;
+
+-- Sizes for two fashion products, so the variant picker has something to show.
+insert into product_variants (product_id, name, stock)
+select md5('seed-product-' || product)::uuid, size, abs(hashtext(product || size)) % 20 + 1
+from (values
+  ('Men''s Polo Shirt', 'S'), ('Men''s Polo Shirt', 'M'), ('Men''s Polo Shirt', 'L'), ('Men''s Polo Shirt', 'XL'),
+  ('Canvas Sneakers', '39'), ('Canvas Sneakers', '40'), ('Canvas Sneakers', '41'), ('Canvas Sneakers', '42')
+) as v (product, size)
+on conflict (product_id, name) do nothing;
