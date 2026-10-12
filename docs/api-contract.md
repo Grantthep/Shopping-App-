@@ -9,8 +9,11 @@ rules decide who may do what, so the page code doesn't need to check permissions
 - Order statuses: `pending → paid → shipped → delivered → completed`, or `cancelled`.
   Cash on delivery skips `paid` (`pending → shipped`).
 
-Still to come from the backend side (need the Next.js project first): KBZPay/WavePay payment
-start + confirmation, and order emails. Until then, checkout works with cash on delivery.
+- Spam limits: 5 checkouts per 10 min, 30 new products per hour, 20 reviews per hour, 60 cart adds
+  per 10 min per user. Going over returns "Too many requests…"; show the message.
+- Emails are automatic (new order → seller, shipped → buyer); the frontend does nothing.
+
+Not built yet: KBZPay/WavePay payments. Checkout uses cash on delivery (`payment_method: 'cod'`).
 
 ## Accounts
 

@@ -23,6 +23,13 @@ async function freshDb() {
     create function storage.foldername(name text) returns text[] language sql immutable as
       $$ select (string_to_array(name, '/'))[1:array_length(string_to_array(name, '/'), 1) - 1] $$;
     alter table storage.objects enable row level security;
+    create schema vault;
+    create table vault.decrypted_secrets (name text primary key, decrypted_secret text);
+    -- pg_net stub: records requests instead of sending them.
+    create schema net;
+    create table net.calls (url text, headers jsonb, body jsonb);
+    create function net.http_post(url text, body jsonb default '{}', headers jsonb default '{}') returns bigint
+      language sql as $$ insert into net.calls values (url, headers, body); select 1::bigint $$;
     create role anon;
     create role authenticated;
     create role service_role;
@@ -35,7 +42,8 @@ async function freshDb() {
     alter default privileges in schema public grant all on sequences to anon, authenticated;
   `);
   for (const f of readdirSync(join(dir, 'migrations')).sort()) {
-    await db.exec(readFileSync(join(dir, 'migrations', f), 'utf8'));
+    // pg_net isn't available in PGlite; the stub above stands in for it.
+    await db.exec(readFileSync(join(dir, 'migrations', f), 'utf8').replace('create extension if not exists pg_net;', ''));
   }
   return db;
 }
@@ -224,4 +232,36 @@ await assert.rejects(runAs(seeded, BUY, `select mark_order_paid('${STYLE_ORDER}'
 await runAs(seeded, BUY, `select mark_order_paid('${kbz}', 'ref1')`, true, 'service_role');
 assert.equal((await seeded.query(`select status from orders where id = '${kbz}'`)).rows[0].status, 'paid', 'server marks paid');
 
-console.log('All schema, security, storage, seed, search, checkout and order checks passed');
+// Emails: off without a key; with a key, new order -> seller, shipped -> buyer.
+const calls = async () => (await seeded.query(`select body from net.calls`)).rows.map(r => r.body);
+assert.equal((await calls()).length, 0, 'no emails without an API key');
+await seeded.exec(`
+  insert into vault.decrypted_secrets values ('resend_api_key', 're_test');
+  update auth.users set email = 'buyer@example.com' where id = '${BUY}';
+  update products set stock = 100 where name = 'Phone Case Clear';
+`);
+await asB(cart('Phone Case Clear', 1), true);
+const mailed = (await asB(placeOrder(), true)).rows[0].place_order;
+await runAs(seeded, SELLER1, status(mailed, 'shipped'), true);
+const sent = await calls();
+assert.deepEqual(sent.map(b => b.to), ['seller1@example.com', 'buyer@example.com'], 'seller then buyer emailed');
+assert.match(sent[0].subject, /^New order [0-9A-F]{8} for Golden Land Store$/, 'new order subject');
+assert.match(sent[0].text, /5,000 Ks/, 'total formatted in kyat');
+assert.match(sent[1].subject, /has shipped$/, 'shipped subject');
+
+// Rate limits.
+await seeded.exec(`delete from rate_limits`);
+for (let i = 0; i < 5; i++) {
+  await asB(cart('Phone Case Clear', 1), true);
+  await asB(placeOrder(), true);
+}
+await asB(cart('Phone Case Clear', 1), true);
+await assert.rejects(asB(placeOrder()), /Too many requests/, '6th checkout in 10 minutes is refused');
+await seeded.exec(`delete from rate_limits; delete from cart_items`);
+await asB(cart('Phone Case Clear', 1), true);
+await asB(cart('Cotton Longyi', 1), true);
+assert.equal((await asB(placeOrder(), true)).rows.length, 2, 'a two-shop checkout counts once');
+assert.equal((await seeded.query(`select count(*)::int as n from rate_limits where action = 'checkout'`)).rows[0].n, 1, 'counted once');
+await fails(BUY, `select check_rate_limit('x', 1, '1 minute')`, 'browsers cannot call the rate limiter directly', seeded);
+
+console.log('All schema, security, storage, seed, search, checkout, order, email and rate limit checks passed');
