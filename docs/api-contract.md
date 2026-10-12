@@ -4,6 +4,9 @@ How the pages get and change data. Everything below is called from the browser w
 Supabase client (`@supabase/supabase-js`) using the **publishable** key. The database's security
 rules decide who may do what, so the page code doesn't need to check permissions itself.
 
+- Types for every table and function are in `lib/db/database.types.ts`: create the client with
+  `createClient<Database>(…)` for autocomplete. Regenerate after database changes:
+  `npx supabase gen types typescript --linked --schema public > lib/db/database.types.ts`.
 - Prices are whole **kyat** (`int`), never decimals. Show them as `price.toLocaleString() + ' Ks'`.
 - Errors come back as `{ error }` with a readable `error.message` (e.g. "Your cart is empty"). Show it to the user.
 - Order statuses: `pending → paid → shipped → delivered → completed`, or `cancelled`.
