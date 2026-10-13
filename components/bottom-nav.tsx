@@ -4,6 +4,7 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { House, ShoppingCart, User } from "lucide-react";
+import { AccountName } from "@/components/account";
 
 const nav = [
   { href: "/", label: "Home", icon: House },
@@ -37,7 +38,7 @@ function Tabs({ pathname }: { pathname?: string }) {
             className={`flex flex-col items-center gap-0.5 py-2 text-xs ${active ? "font-semibold text-primary" : "text-muted-foreground"}`}
           >
             <Icon className="size-5" />
-            {label}
+            {href === "/account" ? <AccountName /> : label}
           </Link>
         );
       })}
