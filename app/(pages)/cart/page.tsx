@@ -7,21 +7,9 @@ import { useRouter } from "next/navigation";
 import { Minus, Plus, Trash2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { CART_UPDATED } from "@/components/cart-badge";
-import { Button } from "@/components/ui/button";
-
-const loadCart = () =>
-  createClient()
-    .from("cart_items")
-    .select(
-      "id, quantity, variant_id, products(id, name, price, stock, shop_id, shops(name), product_images(url)), product_variants(name, price, stock)",
-    )
-    .order("added_at"); // stable order: rows can otherwise come back shuffled after an update
-type Item = NonNullable<Awaited<ReturnType<typeof loadCart>>["data"]>[number];
-
-// A variant's price falls back to the product's; its stock is its own
-const priceOf = (i: Item) => i.product_variants?.price ?? i.products!.price;
-const stockOf = (i: Item) => i.product_variants?.stock ?? i.products!.stock;
-const ks = (n: number) => n.toLocaleString() + " Ks";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+import { groupByShop, ks, loadCart, priceOf, stockOf, totalOf, type Item } from "@/components/cart-data";
 
 export default function CartPage() {
   const router = useRouter();
@@ -75,11 +63,6 @@ export default function CartPage() {
       </div>
     );
 
-  // Checkout makes one order per shop, so group lines by shop
-  // Not Map.groupBy: missing before iOS 17.4, still common on phones here
-  const shops = new Map<string, Item[]>();
-  for (const i of items) shops.set(i.products!.shop_id, [...(shops.get(i.products!.shop_id) ?? []), i]);
-  const total = items.reduce((sum, i) => sum + priceOf(i) * i.quantity, 0);
 
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-6">
@@ -90,7 +73,7 @@ export default function CartPage() {
         </p>
       )}
 
-      {[...shops.values()].map((lines) => (
+      {groupByShop(items).map((lines) => (
         <section key={lines[0].products!.shop_id} className="rounded-xl ring-1 ring-foreground/10">
           <h2 className="rounded-t-xl bg-secondary px-4 py-2 font-semibold text-secondary-foreground">
             {lines[0].products!.shops?.name}
@@ -158,7 +141,7 @@ export default function CartPage() {
           <p className="flex justify-between border-t px-4 py-2 text-sm">
             <span>Subtotal</span>
             <span className="font-bold text-primary">
-              {ks(lines.reduce((sum, i) => sum + priceOf(i) * i.quantity, 0))}
+              {ks(totalOf(lines))}
             </span>
           </p>
         </section>
@@ -166,8 +149,14 @@ export default function CartPage() {
 
       <p className="flex justify-between text-lg font-semibold">
         <span>Total</span>
-        <span className="font-bold text-primary">{ks(total)}</span>
+        <span className="font-bold text-primary">{ks(totalOf(items))}</span>
       </p>
+      <Link
+        href="/checkout"
+        className={cn(buttonVariants({ size: "lg" }), "h-11 bg-accent text-base text-accent-foreground hover:bg-accent/80")}
+      >
+        Check out
+      </Link>
     </div>
   );
 }
