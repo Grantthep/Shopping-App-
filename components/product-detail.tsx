@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 
@@ -20,12 +20,16 @@ const load = async (id: string) => {
       .eq("product_id", id)
       .order("created_at", { ascending: false }),
   ]);
+  // PGRST116: no row with this id; 22P02: the id isn't a valid uuid
+  if (["PGRST116", "22P02"].includes(product.error?.code ?? ""))
+    return { id, error: "Product not found", product: null, reviews: [] };
   const error = product.error ?? reviews.error;
   return { id, error: error?.message, product: product.data, reviews: reviews.data ?? [] };
 };
 
 export function ProductDetail() {
   const { id } = useParams<{ id: string }>();
+  const router = useRouter();
   const [result, setResult] = useState<Awaited<ReturnType<typeof load>>>();
   const [variantId, setVariantId] = useState<string>();
   const [message, setMessage] = useState<string>();
@@ -49,10 +53,12 @@ export function ProductDetail() {
   const price = variant?.price ?? product.price;
   const stock = variants.length ? variant?.stock : product.stock;
 
-  function addToCart() {
-    if (variants.length && !variant) setMessage("Choose an option first");
-    // shortcut: login isn't built yet, insert into cart_items per docs/api-contract.md once it is
-    else setMessage("Log in to add to cart");
+  async function addToCart() {
+    const { data } = await createClient().auth.getSession();
+    if (!data.session) return router.push("/login");
+    if (variants.length && !variant) return setMessage("Choose an option first");
+    // shortcut: cart isn't built yet, insert into cart_items per docs/api-contract.md in the cart task
+    setMessage("Cart is coming soon");
   }
 
   return (
@@ -89,8 +95,9 @@ export function ProductDetail() {
               {variants.map((v) => (
                 <Button
                   key={v.id}
-                  variant={v.id === variantId ? "default" : "outline"}
+                  variant="outline"
                   aria-pressed={v.id === variantId}
+                  className="h-10 min-w-12 aria-pressed:border-2 aria-pressed:border-primary aria-pressed:font-semibold aria-pressed:text-primary aria-pressed:hover:text-primary"
                   disabled={v.stock === 0}
                   onClick={() => {
                     setVariantId(v.id);

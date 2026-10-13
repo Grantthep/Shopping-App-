@@ -4,6 +4,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { BottomNav } from "@/components/bottom-nav";
+import { AccountName } from "@/components/account";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -45,11 +46,12 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
               />
             </form>
             <nav className="hidden gap-4 text-sm md:flex">
-              {[["/cart", "Cart"], ["/account", "Account"]].map(([href, label]) => (
-                <Link key={href} href={href} className="hover:underline">
-                  {label}
-                </Link>
-              ))}
+              <Link href="/cart" className="hover:underline">
+                Cart
+              </Link>
+              <Link href="/account" className="hover:underline">
+                <AccountName />
+              </Link>
             </nav>
           </div>
         </header>
