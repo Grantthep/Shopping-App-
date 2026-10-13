@@ -54,7 +54,7 @@ export function ProductList() {
                 </div>
                 <CardContent className="flex flex-col gap-1">
                   <p className="line-clamp-2">{p.name}</p>
-                  <p className="font-semibold">{(p.price ?? 0).toLocaleString()} Ks</p>
+                  <p className="font-bold text-primary">{(p.price ?? 0).toLocaleString()} Ks</p>
                   <p className="text-xs text-muted-foreground">{p.shop_name}</p>
                 </CardContent>
               </Card>
