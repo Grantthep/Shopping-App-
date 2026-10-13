@@ -43,25 +43,21 @@ export default function CartPage() {
       .then(({ data }) => (data.session ? reload() : router.replace("/login")));
   }, [reload, router]);
 
-  // Optimistic: change the screen first, reload from the database if the call fails
-  async function setQuantity(item: Item, quantity: number) {
-    setItems((all) => all?.map((i) => (i.id === item.id ? { ...i, quantity } : i)));
-    const { error } = await createClient().from("cart_items").update({ quantity }).eq("id", item.id);
-    if (error) {
-      setError(error.message);
-      reload();
-    }
-  }
+  // Line being saved: its buttons stay disabled until the save and reload finish, so quick taps can't overlap
+  const [saving, setSaving] = useState<string>();
 
-  async function remove(item: Item) {
-    setItems((all) => all?.filter((i) => i.id !== item.id));
-    const { error } = await createClient().from("cart_items").delete().eq("id", item.id);
-    if (error) {
-      setError(error.message);
-      reload();
-    }
+  async function save(item: Item, call: () => PromiseLike<{ error: { message: string } | null }>) {
+    setSaving(item.id);
+    const { error } = await call();
+    setError(error?.message);
+    await reload();
+    setSaving(undefined);
     window.dispatchEvent(new Event(CART_UPDATED));
   }
+
+  const setQuantity = (item: Item, quantity: number) =>
+    save(item, () => createClient().from("cart_items").update({ quantity }).eq("id", item.id));
+  const remove = (item: Item) => save(item, () => createClient().from("cart_items").delete().eq("id", item.id));
 
   if (!items) return error ? <p className="text-destructive">{error}</p> : <p className="text-muted-foreground">Loading cart…</p>;
 
@@ -122,7 +118,7 @@ export default function CartPage() {
                         variant="outline"
                         size="icon"
                         aria-label="Decrease quantity"
-                        disabled={item.quantity <= 1}
+                        disabled={saving === item.id || item.quantity <= 1}
                         onClick={() => setQuantity(item, item.quantity - 1)}
                       >
                         <Minus />
@@ -134,7 +130,7 @@ export default function CartPage() {
                         variant="outline"
                         size="icon"
                         aria-label="Increase quantity"
-                        disabled={item.quantity >= max}
+                        disabled={saving === item.id || item.quantity >= max}
                         onClick={() => setQuantity(item, item.quantity + 1)}
                       >
                         <Plus />
@@ -144,6 +140,7 @@ export default function CartPage() {
                         size="icon"
                         aria-label={`Remove ${product.name}`}
                         className="ml-auto text-muted-foreground"
+                        disabled={saving === item.id}
                         onClick={() => remove(item)}
                       >
                         <Trash2 />
