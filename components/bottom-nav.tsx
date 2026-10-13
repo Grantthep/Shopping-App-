@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { House, ShoppingCart, User } from "lucide-react";
 import { AccountName } from "@/components/account";
+import { CartBadge } from "@/components/cart-badge";
 
 const nav = [
   { href: "/", label: "Home", icon: House },
@@ -37,7 +38,10 @@ function Tabs({ pathname }: { pathname?: string }) {
             aria-current={active ? "page" : undefined}
             className={`flex flex-col items-center gap-0.5 py-2 text-xs ${active ? "font-semibold text-primary" : "text-muted-foreground"}`}
           >
-            <Icon className="size-5" />
+            <span className="relative">
+              <Icon className="size-5" />
+              {href === "/cart" && <CartBadge className="absolute -top-1.5 left-3.5" />}
+            </span>
             {href === "/account" ? <AccountName /> : label}
           </Link>
         );

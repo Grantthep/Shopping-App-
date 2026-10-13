@@ -2,9 +2,11 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
+import { CART_UPDATED } from "@/components/cart-badge";
 
 const load = async (id: string) => {
   const supabase = createClient();
@@ -46,7 +48,7 @@ export function ProductDetail() {
   if (result.error || !result.product) return <p className="text-destructive">{result.error}</p>;
   const { product, reviews } = result;
 
-  const images = product.product_images.toSorted((a, b) => a.position - b.position);
+  const images = [...product.product_images].sort((a, b) => a.position - b.position);
   const variants = product.product_variants;
   const variant = variants.find((v) => v.id === variantId);
   // With variants, price and stock come from the chosen variant (price falls back to the product's)
@@ -54,11 +56,26 @@ export function ProductDetail() {
   const stock = variants.length ? variant?.stock : product.stock;
 
   async function addToCart() {
-    const { data } = await createClient().auth.getSession();
-    if (!data.session) return router.push("/login");
+    const supabase = createClient();
+    const { session } = (await supabase.auth.getSession()).data;
+    if (!session) return router.push("/login");
     if (variants.length && !variant) return setMessage("Choose an option first");
-    // shortcut: cart isn't built yet, insert into cart_items per docs/api-contract.md in the cart task
-    setMessage("Cart is coming soon");
+
+    let { error } = await supabase
+      .from("cart_items")
+      .insert({ user_id: session.user.id, product_id: product.id, variant_id: variant?.id ?? null, quantity: 1 });
+    if (error?.code === "23505") {
+      // Already in the cart (unique per product + variant): add one more, capped at stock and 99
+      const line = supabase.from("cart_items").select("id, quantity").eq("product_id", product.id);
+      const existing = await (variant ? line.eq("variant_id", variant.id) : line.is("variant_id", null)).single();
+      if (existing.error) return setMessage(existing.error.message);
+      const quantity = Math.min(existing.data.quantity + 1, stock ?? 0, 99);
+      if (quantity <= existing.data.quantity) return setMessage("Your cart already has the most you can buy");
+      ({ error } = await supabase.from("cart_items").update({ quantity }).eq("id", existing.data.id));
+    }
+    if (error) return setMessage(error.message);
+    setMessage("Added to cart");
+    window.dispatchEvent(new Event(CART_UPDATED));
   }
 
   return (
@@ -126,6 +143,14 @@ export function ProductDetail() {
         {message && (
           <p role="status" className="text-sm font-medium text-primary">
             {message}
+            {message === "Added to cart" && (
+              <>
+                {" · "}
+                <Link href="/cart" className="underline">
+                  View cart
+                </Link>
+              </>
+            )}
           </p>
         )}
 
