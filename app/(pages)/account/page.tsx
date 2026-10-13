@@ -66,6 +66,11 @@ export default function AccountPage() {
       <Link href="/orders" className={cn(buttonVariants({ variant: "outline", size: "lg" }), "h-11 justify-between text-base")}>
         My orders <ChevronRight />
       </Link>
+      {profile.role === "seller" && (
+        <Link href="/seller" className={cn(buttonVariants({ variant: "outline", size: "lg" }), "-mt-4 h-11 justify-between text-base")}>
+          Seller dashboard <ChevronRight />
+        </Link>
+      )}
 
       {/* key: re-mount with fresh defaults after saving */}
       <form
