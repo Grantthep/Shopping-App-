@@ -17,7 +17,8 @@ type Address = { name?: string; phone?: string; address?: string; city?: string 
 const payments: Record<string, string> = { cod: "Cash on delivery", kbzpay: "KBZPay", wavepay: "WavePay", test: "Test payment" };
 const steps: OrderStatus[] = ["pending", "shipped", "delivered", "completed"];
 
-export function OrderDetail() {
+// seller: the shop owner's view (seller buttons, no review forms)
+export function OrderDetail({ seller = false }: { seller?: boolean }) {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const [order, setOrder] = useState<Order>();
@@ -46,7 +47,7 @@ export function OrderDetail() {
   }, [load, router]);
 
   // Products I've already reviewed, so their forms stay hidden
-  const canReview = order?.status === "delivered" || order?.status === "completed";
+  const canReview = !seller && (order?.status === "delivered" || order?.status === "completed");
   const productIds = [...new Set(order?.order_items.flatMap((i) => (i.product_id ? [i.product_id] : [])) ?? [])];
   const productKey = productIds.join(",");
   useEffect(() => {
@@ -160,7 +161,18 @@ export function OrderDetail() {
         </p>
       )}
 
-      {order.status === "delivered" && (
+      {/* Buttons follow the "who can press which button" table; the database enforces it too */}
+      {seller && (order.status === "paid" || (order.status === "pending" && order.payment_method === "cod")) && (
+        <Button size="lg" className="h-11 text-base" disabled={busy} onClick={() => setStatus("shipped")}>
+          Mark shipped
+        </Button>
+      )}
+      {seller && order.status === "shipped" && (
+        <Button size="lg" className="h-11 text-base" disabled={busy} onClick={() => setStatus("delivered")}>
+          Mark delivered
+        </Button>
+      )}
+      {!seller && order.status === "delivered" && (
         <Button size="lg" className="h-11 text-base" disabled={busy} onClick={() => setStatus("completed")}>
           Order received
         </Button>
