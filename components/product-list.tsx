@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
@@ -40,24 +41,26 @@ export function ProductList() {
         <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
           {products.map((p) => (
             <li key={p.id}>
-              <Card size="sm" className="h-full pt-0">
-                <div className="relative aspect-square bg-muted">
-                  {p.image_url && (
-                    <Image
-                      src={p.image_url}
-                      alt={p.name ?? ""}
-                      fill
-                      sizes="(min-width: 1024px) 20vw, (min-width: 640px) 33vw, 50vw"
-                      className="object-cover"
-                    />
-                  )}
-                </div>
-                <CardContent className="flex flex-col gap-1">
-                  <p className="line-clamp-2">{p.name}</p>
-                  <p className="font-semibold">{(p.price ?? 0).toLocaleString()} Ks</p>
-                  <p className="text-xs text-muted-foreground">{p.shop_name}</p>
+                <Link href={`/product/${p.id}`} className="block h-full rounded-xl focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none">
+                <Card size="sm" className="h-full pt-0">
+                  <div className="relative aspect-square bg-muted">
+                    {p.image_url && (
+                      <Image
+                        src={p.image_url}
+                        alt={p.name ?? ""}
+                        fill
+                        sizes="(min-width: 1024px) 20vw, (min-width: 640px) 33vw, 50vw"
+                        className="object-cover"
+                      />
+                    )}
+                  </div>
+                  <CardContent className="flex flex-col gap-1">
+                    <p className="line-clamp-2">{p.name}</p>
+                    <p className="font-bold text-primary">{(p.price ?? 0).toLocaleString()} Ks</p>
+                    <p className="text-xs text-muted-foreground">{p.shop_name}</p>
                 </CardContent>
               </Card>
+              </Link>
             </li>
           ))}
         </ul>
