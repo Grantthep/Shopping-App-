@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -45,12 +45,16 @@ export default function CartPage() {
 
   // Line being saved: its buttons stay disabled until the save and reload finish, so quick taps can't overlap
   const [saving, setSaving] = useState<string>();
+  const savingNow = useRef(false); // set synchronously, before the disabled buttons re-render
 
   async function save(item: Item, call: () => PromiseLike<{ error: { message: string } | null }>) {
+    if (savingNow.current) return;
+    savingNow.current = true;
     setSaving(item.id);
     const { error } = await call();
     setError(error?.message);
     await reload();
+    savingNow.current = false;
     setSaving(undefined);
     window.dispatchEvent(new Event(CART_UPDATED));
   }
