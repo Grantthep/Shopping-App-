@@ -6,9 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { CircleCheck } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-
-// Short, readable order number from the order's uuid
-const orderNo = (id: string) => "#" + id.slice(0, 8).toUpperCase();
+import { orderNo } from "@/components/order-status";
 
 function OrderNumbers() {
   const ids = useSearchParams().get("ids")?.split(",").filter(Boolean) ?? [];
