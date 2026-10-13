@@ -5,6 +5,7 @@ import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { BottomNav } from "@/components/bottom-nav";
 import { AccountName } from "@/components/account";
+import { CartBadge } from "@/components/cart-badge";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -46,8 +47,8 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
               />
             </form>
             <nav className="hidden gap-4 text-sm md:flex">
-              <Link href="/cart" className="hover:underline">
-                Cart
+              <Link href="/cart" className="flex items-center gap-1 hover:underline">
+                Cart <CartBadge />
               </Link>
               <Link href="/account" className="hover:underline">
                 <AccountName />
