@@ -34,3 +34,4 @@ The Next.js app (pages, components) doesn't exist yet. That's Person A's first t
 - One branch per task: `a/product-page`, `b/cart-api`. Open a pull request; the other person merges.
 - Don't edit the other person's folders without telling them.
 - Never paste secret keys into GitHub or chats.
+- After any change in `supabase/`, run `npm run test:db` (database and security tests, no internet needed).

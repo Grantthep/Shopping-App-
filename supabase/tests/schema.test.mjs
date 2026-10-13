@@ -1,5 +1,5 @@
 // Checks the migrations, RLS rules and seed on in-memory Postgres with stubbed Supabase auth/storage schemas.
-// Run: npm i -D @electric-sql/pglite && node supabase/tests/schema.test.mjs supabase
+// Run: npm run test:db
 import { PGlite } from '@electric-sql/pglite';
 import { pg_trgm } from '@electric-sql/pglite/contrib/pg_trgm';
 import { readFileSync, readdirSync } from 'node:fs';
