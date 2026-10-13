@@ -43,6 +43,7 @@ so testers can't sign up until you set this up.
 ## Before launch
 
 - [ ] Delete the two fake seller accounts (or keep them as demo shops): Supabase → **Authentication** → **Users** → `seller1@example.com`, `seller2@example.com` → **Delete user**. Their shops and products go with them.
+- [ ] Delete the demo buyer `demo.buyer@example.com` (made for testing; password shared privately, never in this repo).
 - [ ] **Payments (later):** apply for a KBZPay/WavePay merchant account through a gateway (e.g. Dinger or 2C2P) and ask for sandbox access. Checkout works with cash on delivery until then.
 
 ## Changing the database
