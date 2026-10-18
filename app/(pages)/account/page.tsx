@@ -5,7 +5,10 @@ import { useRouter } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
 import { PROFILE_UPDATED } from "@/components/account";
-import { Button } from "@/components/ui/button";
+import Link from "next/link";
+import { ChevronRight } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { Tables } from "@/lib/db/database.types";
 
@@ -59,6 +62,10 @@ export default function AccountPage() {
           {profile.role}
         </p>
       </div>
+
+      <Link href="/orders" className={cn(buttonVariants({ variant: "outline", size: "lg" }), "h-11 justify-between text-base")}>
+        My orders <ChevronRight />
+      </Link>
 
       {/* key: re-mount with fresh defaults after saving */}
       <form
